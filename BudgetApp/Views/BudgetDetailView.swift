@@ -10,6 +10,8 @@ import SwiftData
 
 struct BudgetDetailView: View {
   
+  @Environment(\.modelContext) private var modelContext
+  
   @Bindable var budget: Budget
   
   @State private var isPresentedAddExpenseView: Bool = false
@@ -32,31 +34,29 @@ struct BudgetDetailView: View {
         Section("Expenses") {
           if let expenses = budget.expenses {
             List {
-              VStack(alignment: .leading, spacing: 10) {
+              VStack(alignment: .center, spacing: 10) {
+                
                 HStack {
                   Text("Spent:")
-                  Spacer()
                   Text(budget.spent, format: .currency(code: Locale.currencyCode))
                 }
-                Divider()
+                
                 HStack {
                   Text("Remaining:")
-                  Spacer()
                   Text(budget.remaining, format: .currency(code: Locale.currencyCode))
                     .foregroundStyle(insufficientFundsColor)
                 }
                 
-                Divider()
               }
-              .frame(maxWidth: .infinity, alignment: .leading)
+              .frame(maxWidth: .infinity, alignment: .center)
               
               ForEach(expenses) { expense in
                 ExpenseCellView(expense: expense)
               }
+              .onDelete(perform: deleteExpense)
             }
           }
         }
-        
       }
       .navigationTitle("Budget Name")
     }
@@ -76,13 +76,26 @@ struct BudgetDetailView: View {
   private var insufficientFundsColor: Color {
     budget.remaining < 0 ? .red : .green
   }
+  
+  private func deleteExpense(indexSet: IndexSet) {
+    if let expenses = budget.expenses {
+      indexSet.forEach { index in
+        let expenseToDelete = expenses[index]
+        if let expenseIndex = budget.expenses?.firstIndex(where: { $0.id == expenseToDelete.id }) {
+          budget.expenses?.remove(at: expenseIndex)
+        }
+        modelContext.delete(expenseToDelete)
+        try? modelContext.save()
+      }
+    }
+  }
 }
 
 #Preview {
   let container = Budget.previewContainer
   let fetchDescriptor = FetchDescriptor<Budget>()
   let budget = try! container.mainContext.fetch(fetchDescriptor)[0]
-  return NavigationStack {
+  NavigationStack {
     BudgetDetailView(budget: budget)
       .modelContainer(container)
   }
